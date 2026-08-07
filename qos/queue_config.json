@@ -1,0 +1,45 @@
+{
+  "description": "OVS QoS queue definitions for National Disaster Response Network (Review 1)",
+  "notes": [
+    "Rates are in bits/sec (OVS other-config min-rate / max-rate).",
+    "Queue 0 = high priority (hospital/ambulance/rescue).",
+    "Queue 1 = low priority (public helpline bulk), rate-limited.",
+    "Applied to s1 egress toward core (port s1-eth1 -> s2) during demo."
+  ],
+  "queues": {
+    "0": {
+      "name": "high_priority_critical",
+      "min_rate_bps": 40000000,
+      "max_rate_bps": 50000000,
+      "traffic_classes": [
+        "Hospital critical TCP/5002",
+        "Ambulance data TCP/5001",
+        "Rescue location UDP/6001"
+      ],
+      "openflow_queue_id": 0
+    },
+    "1": {
+      "name": "low_priority_best_effort",
+      "min_rate_bps": 1000000,
+      "max_rate_bps": 5000000,
+      "traffic_classes": [
+        "Public helpline bulk TCP/8080"
+      ],
+      "openflow_queue_id": 1
+    }
+  },
+  "qos_port": {
+    "switch": "s1",
+    "port_name": "s1-eth1",
+    "comment": "Egress from s1 toward s2 — shared bottleneck for demo"
+  },
+  "openflow_mapping": {
+    "high_priority_queue_id": 0,
+    "low_priority_queue_id": 1,
+    "controller_env_var": "DISASTER_QOS",
+    "controller_env_values": {
+      "enabled": "1",
+      "disabled_baseline": "0"
+    }
+  }
+}
