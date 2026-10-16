@@ -1362,6 +1362,10 @@ specification as the target and this file as the current handoff state.
 - **Phase 4 gate passed.** Next is Phase 5: compare best-effort, fixed QoS and
   adaptive policy on identical workloads, retain raw results, and produce
   reproducible charts. No Phase 5 performance claim is made yet.
+- Added `PROJECT_GUIDE.md` as the single practical reference for environment
+  preparation, all launch paths, student commands, acceptance harnesses, evidence
+  interpretation, and troubleshooting. README links to it; older Phase 3/4
+  guide status text was aligned with the audited Phase 4 result.
 
 ## Prompt to paste into the new chat
 

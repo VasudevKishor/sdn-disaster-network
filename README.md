@@ -2,12 +2,14 @@
 
 The agreed project is [PROJECT_DESCRIPTION_AND_PLAN.md](PROJECT_DESCRIPTION_AND_PLAN.md).
 Read [HANDOFF.md](HANDOFF.md) for current progress, tested results and remaining gates.
-**Phases 1–3 have passed their implemented live gates.** The expanded
+For the end-to-end environment, launch, demo, validation and troubleshooting
+instructions, start with the [complete project guide](PROJECT_GUIDE.md).
+**Phases 1–4 have passed their implemented live gates.** The expanded
 two-district network has 20 switches and 24 endpoints. Phase 3 passed three full
-live repetitions, independently audited on 2026-10-16. The four simplified Phase 4
-demo helpers are implemented; their live rehearsal gate is pending. No unchanged
-Phase 3 rerun is needed. Commands and student scripts are in the
-[Phase 4 runbook](docs/15_phase4_demos.md).
+live repetitions, and all four Phase 4 demos plus resets passed three full
+repetitions with audited evidence. Phase 5 comparative experiments and Phase 6
+presentation preparation/rehearsal remain. Commands and student scripts are in
+the [Phase 4 runbook](docs/15_phase4_demos.md).
 Profiles, service permissions, joint capacity admission, queues, controlled
 deployment/rollback and local operator commands are described in the
 [Phase 3 guide](docs/14_phase3.md).

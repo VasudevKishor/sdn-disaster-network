@@ -241,7 +241,7 @@ counter checks per run; application recovery in 4.649–4.791 seconds; populated
 isolated-switch rollback readback and live coordination; receiver video 3.89 Mbps
 under its 4 Mbps maximum; and clean teardown. Audit:
 `monitoring/evidence/phase3_live_audit_2026-10-16.json`.
-No unchanged live rerun is needed. Phase 4 still must build/rehearse the four complete
-student demonstrations, including the bounded two-switch/one-class rollback
-exercise; this harness's full-profile checkpoint is supporting infrastructure.
+No unchanged Phase 3 live rerun is needed. The four simplified Phase 4 student
+demonstrations and their resets have now passed three full live repetitions;
+the full-profile checkpoint/rollback is the approved fourth demonstration.
 Phase 5 comparative workloads/charts and Phase 6 presentation/rehearsal remain.

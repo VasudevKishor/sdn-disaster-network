@@ -1,9 +1,10 @@
 # Four simplified student demonstrations
 
-Phase 1–3 gates have passed. The Phase 4 helpers are implemented; **their full
-three-repetition live gate is pending**. The user approved using Phase 3's tested
-whole-profile checkpoint/rollback for demo 4 instead of a separate two-switch,
-single-class updater. The other three retain the agreed measured outcomes.
+Phase 1–3 gates passed before Phase 4. The Phase 4 helpers have now passed **three
+full live repetitions**, including each demo reset and owned cleanup. The user
+approved using Phase 3's tested whole-profile checkpoint/rollback for demo 4
+instead of a separate two-switch, single-class updater. The other three retain
+the agreed measured outcomes.
 
 Each student creates a problem, inspects evidence, applies a chosen correction,
 verifies the result and resets. The helper commands never combine the whole
@@ -11,9 +12,10 @@ assessed demonstration into one action. The automated harness uses the same
 individual commands for repeatability testing. The 3–4 minute presentation target
 still requires rehearsal; it is not a measured timing claim.
 
-## Fast validation first
+## Validation and saved full-gate result
 
-From the project root, test the new congestion experiment once:
+From the project root, offline checks and focused live diagnostics are available
+after relevant code changes:
 
 ```bash
 python3 scripts/validate_phase4.py
@@ -37,20 +39,23 @@ on-time urgent delivery fell from 100% to 69.30% with bulk load, then returned
 to 100% after evacuation using the same workload processes. Bulk queue throughput
 fell from 37.99 to 0.985 Mbps. Reset and owned cleanup passed. Audit:
 `monitoring/evidence/phase4_congestion_live_audit_2026-10-16.json`.
-No unchanged focused rerun is needed; the complete gate below is next.
+No unchanged focused rerun is needed; the complete gate result is recorded below.
 
-Once that focused run passes, run all demonstrations and resets:
+The full three-repetition live command is:
 
 ```bash
 sudo python3 -m tests.phase4_harness --repetitions 3
 ```
 
-The full gate creates one owned topology per repetition and runs all four demos
-on it. It saves command order, raw client/server events, receiver pcaps, queue
+The gate creates one owned topology per repetition and runs all four demos on
+it. It saves command order, raw client/server events, receiver pcaps, queue
 counters, snapshots, verification and reset results under
-`monitoring/evidence/phase4-live/`. A focused `--demo` run writes `FOCUSED_PASS`,
-never the full `PASS`. `--demo routing`, `--demo onboarding` and `--demo rollback`
-also support targeted debugging. No unchanged Phase 1–3 live rerun is needed.
+`monitoring/evidence/phase4-live/`. Three complete runs passed on 2026-10-16 and
+were independently audited in
+`monitoring/evidence/phase4_live_audit_2026-10-16.json`.
+A focused `--demo` run writes `FOCUSED_PASS`, never the full `PASS`. Focused runs
+remain useful for debugging changed code. No unchanged Phase 1–3 live rerun is
+needed.
 
 ## One session for the presentation
 
