@@ -203,9 +203,9 @@ gate is satisfied.** No unchanged rerun is needed. Phase 3's incident-policy and
 operator capabilities now also passed three complete live repetitions and an
 independent evidence audit on 2026-10-16. **Phase 3's implemented gate is satisfied.**
 Phase 4's simplified four student demo helpers are now implemented. Focused
-congestion and onboarding checks have passed. The first full rehearsal exposed
-a prepared-endpoint route restoration failure during onboarding; the fix passed
-its focused live check. The full three-repetition rehearsal remains pending.
+congestion and onboarding checks passed, followed by three complete repetitions
+of all four demos and their resets. The full Phase 4 gate is satisfied. Next is
+Phase 5's reproducible best-effort, fixed-QoS and adaptive-policy comparison.
 See [the Phase 3 guide](docs/14_phase3.md) and newest progress entry. Dated progress entries
 below are historical; the newest entry supersedes their pending status.
 
@@ -293,14 +293,12 @@ primary sources when using them in the final presentation.
 three-repetition gate. Phase 2's prototype and full 20-switch expansion also pass
 their inspected three-repetition gates. Preserve this baseline. Phase 3 profiles,
 capacity checks, service access, queues, deployment/recovery and operator commands
-passed their three-repetition live gate and evidence audit. Phase 4's simplified
-helpers use these controls; the focused congestion live check passed. A full run
-then showed that bringing `af3` back up after onboarding's deliberate link-down
-left its IP route unavailable (`ENETUNREACH`), so denied probes were local errors
-instead of tested network denials. The activation and reset paths now restore
-the endpoint address, default route and gateway neighbor explicitly. The 14
-offline demo tests pass, and the focused onboarding live check now passes. Next
-run the full three repetitions. Do not reopen planning or expand scope.
+passed their three-repetition live gate and evidence audit. Phase 4's four
+simplified demos and resets passed three audited repetitions. The first attempt
+found and led to a fix for onboarding endpoint route restoration; focused and
+full repetitions passed after that fix. Phase 4 is complete. Continue with the
+already-planned Phase 5 comparison using identical workloads; preserve raw
+evidence and do not reopen planning or expand scope.
 
 Exact deadline and the team's prior gateway/bonding experience are unknown. Ask
 briefly if needed while continuing the agreed implementation. Do not restart
@@ -315,8 +313,8 @@ the project-planning discussion just to obtain those answers.
 | Phase 2 gateway/bond prototype | Validated: three inspected live repetitions including usable-path faults, restoration and stronger spoof rejection |
 | Expanded two-district topology | Implemented: 20 switches/24 endpoints; 143 offline tests and three audited full live repetitions; Phase 2 gate passed |
 | Phase 3 incident-policy engine/operator controls | Gate passed: 179-test full offline baseline, latest 27 affected regressions including real OVS/Ryu, and three audited complete live repetitions |
-| Phase 4 integrated student demonstrations | Implemented; 198 offline regressions; focused congestion/reset and focused onboarding audited passed; route restoration fix covered by 14 demo tests; full three-repetition rehearsal pending |
-| Comparative network measurements | Not started |
+| Phase 4 integrated student demonstrations | Gate passed: 198 offline regressions, 14 targeted demo tests, focused congestion/onboarding audits, and three audited full repetitions of all four demos plus resets |
+| Phase 5 comparative network measurements | Not started; use identical workloads for best-effort, fixed QoS and adaptive policy |
 | Final presentation and rehearsal | Not started |
 
 After meaningful implementation milestones, update this progress record with
@@ -1340,6 +1338,30 @@ specification as the target and this file as the current handoff state.
 - The marker is `FOCUSED_PASS`, not full `PASS`. Next run
   `sudo python3 -m tests.phase4_harness --repetitions 3`, then inspect every
   saved repetition before marking Phase 4 complete.
+
+### Phase 4 full demonstration gate passed (2026-10-16)
+
+- Three full runs passed all four simplified demonstrations and verified resets:
+  `phase4-live/20261016T073344044135Z` (repetition 1),
+  `phase4-live/20261016T074053243532Z` (repetition 2), and
+  `phase4-live/20261016T074724355416Z` (repetition 3). Each has a `PASS` marker.
+  Earlier failed evidence `20261016T071429243126Z` remains preserved and is not
+  counted among the passing runs.
+- Independently checked the manifest, four ordered demo results, reset status
+  and empty pending-update state in each run. Congestion showed passing baseline,
+  visible under-load failure, and recovery at the same offered workload. Routing
+  kept the failed link down and used a route avoiding it. Onboarding allowed only
+  the registered and granted reporting service; unrelated and spoofed requests
+  had no receiver copies. The whole-profile rollback read back all twenty
+  switches, including `bb2` through the explicit local inspection path, while
+  coordination and dispatch remained live.
+- All 19 receiver captures per run reported zero kernel drops. Demo, policy,
+  health, service, and network cleanup checks passed in all three runs; owned
+  processes exited successfully. Audit summary:
+  `monitoring/evidence/phase4_live_audit_2026-10-16.json`.
+- **Phase 4 gate passed.** Next is Phase 5: compare best-effort, fixed QoS and
+  adaptive policy on identical workloads, retain raw results, and produce
+  reproducible charts. No Phase 5 performance claim is made yet.
 
 ## Prompt to paste into the new chat
 
