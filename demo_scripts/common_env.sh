@@ -5,22 +5,9 @@ RYU_REST_HOST="${RYU_REST_HOST:-127.0.0.1}"
 RYU_REST_PORT="${RYU_REST_PORT:-8080}"
 RYU_REST_BASE="http://${RYU_REST_HOST}:${RYU_REST_PORT}"
 
-# Mininet switch DPIDs (default: s1=1, s2=2, s3=3)
-DPID_S1="${DPID_S1:-1}"
-DPID_S2="${DPID_S2:-2}"
-DPID_S3="${DPID_S3:-3}"
-
-# Agency IPs
-IP_COMMAND_CENTER="10.0.0.1"
-IP_HOSPITAL="10.0.0.2"
-IP_POLICE="10.0.0.3"
-IP_AMBULANCE="10.0.0.4"
-IP_RESCUE="10.0.0.5"
-IP_DRONE="10.0.0.6"
-IP_PUBLIC_HELPLINE="10.0.0.7"
-
-PORT_AMBULANCE=5001
-PORT_HELPLINE=8080
-
-QOS_SWITCH="${QOS_SWITCH:-s1}"
-QOS_PORT="${QOS_SWITCH}-eth1"
+# Fixed topology bindings are generated from the same inventory as Mininet.
+# Fail visibly if Python/configuration is unavailable; do not keep stale copies.
+_LAB_ENV_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+_LAB_BINDINGS="$(python3 "${_LAB_ENV_DIR}/../config/lab.py" shell)" || return 1
+eval "${_LAB_BINDINGS}"
+unset _LAB_ENV_DIR _LAB_BINDINGS

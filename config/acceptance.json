@@ -1,0 +1,14 @@
+{
+  "version": "phase1-initial-2026-10-15",
+  "permitted_probes": 100,
+  "forbidden_attempts": 100,
+  "repetitions": 3,
+  "performance_duration_sec": 12,
+  "offered_rate_per_flow": "35M",
+  "ping_count_under_load": 40,
+  "message_delivery_target": 0.99,
+  "message_p95_rtt_budget_ms": 250,
+  "backbone_recovery_budget_sec": 5,
+  "controller_outage_duration_sec": 30,
+  "note": "Phase 1 freezes starting budgets. Message, recovery and outage gates belong to later demos; legacy ping is not an urgent-message workload."
+}

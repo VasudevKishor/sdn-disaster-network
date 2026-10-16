@@ -2,9 +2,12 @@
   "description": "OVS QoS queue definitions for National Disaster Response Network (Review 1)",
   "notes": [
     "Rates are in bits/sec (OVS other-config min-rate / max-rate).",
-    "Queue 0 = high priority (hospital/ambulance/rescue).",
-    "Queue 1 = low priority (public helpline bulk), rate-limited.",
-    "Applied to s1 egress toward core (port s1-eth1 -> s2) during demo."
+    "Queue 0 = legacy protected class (hospital/ambulance/rescue).",
+    "Queue 1 = legacy public bulk class, rate-limited.",
+    "Minimum rates are guarantees under contention, maximum rates are caps; no HTB scheduling priority is configured.",
+    "All 11 configured egress ports are managed; their root rate follows link capacity.",
+    "Concurrent h2 and h7 streams to h4 share s2-eth4 (50 Mbps).",
+    "OVS HTB may replace TCLink switch qdiscs; the harness records the actual state."
   ],
   "queues": {
     "0": {
@@ -29,9 +32,9 @@
     }
   },
   "qos_port": {
-    "switch": "s1",
-    "port_name": "s1-eth1",
-    "comment": "Egress from s1 toward s2 — shared bottleneck for demo"
+    "switch": "s2",
+    "port_name": "s2-eth4",
+    "comment": "Egress from s2 to Ambulance — shared 50 Mbps bottleneck"
   },
   "openflow_mapping": {
     "high_priority_queue_id": 0,

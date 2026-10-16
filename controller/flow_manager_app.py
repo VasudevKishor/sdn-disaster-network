@@ -1,98 +1,55 @@
 #!/usr/bin/env python3
+"""Phase 1 inventory-based IPv4 forwarding, proxy ARP and legacy QoS classes.
+
+Run: ryu-manager ryu.app.ofctl_rest controller/flow_manager_app.py
+Only the configured chain is supported. Registered endpoints may communicate;
+unknown/spoofed attachments, IPv6, fragments and unknown broadcasts are dropped.
+This static binding is not authentication or the Phase 3 service-policy engine.
 """
-flow_manager_app.py - RYU controller with disaster-scenario flow rules + QoS
-
-Extends the learning-switch foundation with:
-  - Explicit OpenFlow rules for Hospital priority path (via s1->s3->s2)
-  - Port-based matching for Ambulance data (TCP/5001)
-  - Queue mapping for high/low priority traffic (OpenFlow set_queue)
-  - REST API support via ryu.app.ofctl_rest (run separately)
-
-Run (Review 1 full demo):
-  ryu-manager ryu.app.ofctl_rest controller/flow_manager_app.py
-
-Assumptions documented for viva:
-  - Hospital (10.0.0.2) traffic to Ambulance (10.0.0.4) uses explicit path via s3
-  - Ambulance application data uses TCP destination port 5001
-  - High-priority queue ID = 0, low-priority queue ID = 1 (OVS HTB queues)
-  - QoS queues must be configured on switches BEFORE traffic (see qos/qos_setup.sh)
-"""
-
 import json
 import os
-
+import sys
+sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+from config.lab import AGENCY_HOSTS, HOST_BY_IP, HOST_BY_MAC, egress, switch_name, TRAFFIC_PORTS
+from controller.matches import forwarding_match
 from ryu.base import app_manager
 from ryu.controller import ofp_event
-from ryu.controller.handler import CONFIG_DISPATCHER, MAIN_DISPATCHER, DEAD_DISPATCHER
-from ryu.controller.handler import set_ev_cls
+from ryu.controller.handler import CONFIG_DISPATCHER, MAIN_DISPATCHER, DEAD_DISPATCHER, set_ev_cls
 from ryu.ofproto import ofproto_v1_3
-from ryu.lib.packet import packet, ethernet, ipv4, tcp, udp
+from ryu.lib.packet import packet, ethernet, ipv4, tcp, udp, arp
 from ryu.lib import hub
 
-# ---------------------------------------------------------------------------
-# Scenario constants (mirrored in topology/disaster_topo.py)
-# ---------------------------------------------------------------------------
-HOSPITAL_IP = "10.0.0.2"
-AMBULANCE_IP = "10.0.0.4"
-COMMAND_CENTER_IP = "10.0.0.1"
-RESCUE_IP = "10.0.0.5"
-PUBLIC_HELPLINE_IP = "10.0.0.7"
-
-PORT_AMBULANCE_DATA = 5001
-PORT_HOSPITAL_CRITICAL = 5002
-PORT_RESCUE_LOCATION = 6001
-PORT_PUBLIC_HELPLINE = 8080
-PORT_DRONE_VIDEO = 9000
-
-# OpenFlow queue IDs (must match qos/queue_config.json)
-QUEUE_HIGH_PRIORITY = 0
-QUEUE_LOW_PRIORITY = 1
-QUEUE_DEFAULT = 0
-
-# Datapath IDs assigned by Mininet (s1=1, s2=2, s3=3 typically)
-SWITCH_S1 = 1
-SWITCH_S2 = 2
-SWITCH_S3 = 3
-
-# Port numbers on each switch (Mininet assignment order in disaster_topo.py)
-# s1: 1=s2, 2=s3, 3=h1, 4=h2, 5=h7
-# s2: 1=s1, 2=s3, 3=h3, 4=h4
-# s3: 1=s2, 2=s1, 3=h5, 4=h6
-S1_PORT_TO_S3 = 2
-S3_PORT_TO_S2 = 1
-S2_PORT_H4_AMBULANCE = 4
-S1_PORT_H1_COMMAND = 3
+HOSPITAL_IP = AGENCY_HOSTS["h2"]["ip"]
+AMBULANCE_IP = AGENCY_HOSTS["h4"]["ip"]
+COMMAND_CENTER_IP = AGENCY_HOSTS["h1"]["ip"]
+RESCUE_IP = AGENCY_HOSTS["h5"]["ip"]
+PUBLIC_HELPLINE_IP = AGENCY_HOSTS["h7"]["ip"]
+PORT_AMBULANCE_DATA = TRAFFIC_PORTS["ambulance_data"]
+PORT_HOSPITAL_CRITICAL = TRAFFIC_PORTS["hospital_critical"]
+PORT_RESCUE_LOCATION = TRAFFIC_PORTS["rescue_location"]
+PORT_PUBLIC_HELPLINE = TRAFFIC_PORTS["public_helpline"]
+PORT_DRONE_VIDEO = TRAFFIC_PORTS["drone_video"]
+QUEUE_HIGH_PRIORITY, QUEUE_LOW_PRIORITY, QUEUE_DEFAULT = 0, 1, 0
+FLOW_COOKIE = 0xD150000000000001
 
 
 def load_queue_config():
-    """Load optional queue config JSON for documentation / future extensions."""
-    cfg_path = os.path.join(
-        os.path.dirname(os.path.dirname(os.path.abspath(__file__))),
-        "qos",
-        "queue_config.json",
-    )
-    if os.path.exists(cfg_path):
-        with open(cfg_path, "r", encoding="utf-8") as fh:
-            return json.load(fh)
-    return {}
+    path = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))),
+                        "qos", "queue_config.json")
+    with open(path, encoding="utf-8") as fh:
+        return json.load(fh)
 
 
 class FlowManagerApp(app_manager.RyuApp):
-    """Disaster-response SDN controller with custom flows and QoS mapping."""
-
     OFP_VERSIONS = [ofproto_v1_3.OFP_VERSION]
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
-        self.mac_to_port = {}
         self.datapaths = {}
         self.qos_enabled = os.environ.get("DISASTER_QOS", "1") == "1"
         self.queue_config = load_queue_config()
         self.stats_thread = hub.spawn(self._request_stats_loop)
 
-    # ------------------------------------------------------------------
-    # Flow installation helpers
-    # ------------------------------------------------------------------
     def add_flow(
         self,
         datapath,
@@ -110,8 +67,12 @@ class FlowManagerApp(app_manager.RyuApp):
         if instructions is None:
             instructions = [parser.OFPInstructionActions(ofproto.OFPIT_APPLY_ACTIONS, actions)]
 
+        if buffer_id is None:
+            buffer_id = ofproto.OFP_NO_BUFFER
+
         mod = parser.OFPFlowMod(
             datapath=datapath,
+            cookie=FLOW_COOKIE,
             buffer_id=buffer_id,
             priority=priority,
             idle_timeout=idle,
@@ -127,160 +88,104 @@ class FlowManagerApp(app_manager.RyuApp):
         mod = parser.OFPFlowMod(
             datapath=datapath,
             command=ofproto.OFPFC_DELETE,
+            cookie=FLOW_COOKIE, cookie_mask=0xffffffffffffffff,
             out_port=ofproto.OFPP_ANY,
             out_group=ofproto.OFPG_ANY,
             match=match if match else parser.OFPMatch(),
         )
         datapath.send_msg(mod)
 
-    def action_output(self, datapath, port, queue_id=None):
-        parser = datapath.ofproto_parser
-        if queue_id is not None and self.qos_enabled:
-            return parser.OFPActionSetQueue(queue_id)
-        return parser.OFPActionOutput(port)
-
     def actions_with_queue(self, datapath, port, queue_id=QUEUE_DEFAULT):
-        """Build action list: optional set_queue then output port."""
         parser = datapath.ofproto_parser
-        actions = []
-        if self.qos_enabled:
-            actions.append(parser.OFPActionSetQueue(queue_id))
-        actions.append(parser.OFPActionOutput(port))
-        return actions
+        actions = [parser.OFPActionSetQueue(queue_id)] if self.qos_enabled else []
+        return actions + [parser.OFPActionOutput(port)]
 
-    # ------------------------------------------------------------------
-    # Switch connect: table-miss + scenario-specific proactive rules
-    # ------------------------------------------------------------------
     @set_ev_cls(ofp_event.EventOFPSwitchFeatures, CONFIG_DISPATCHER)
     def switch_features_handler(self, ev):
-        datapath = ev.msg.datapath
-        ofproto = datapath.ofproto
-        parser = datapath.ofproto_parser
-        dpid = datapath.id
+        dp = ev.msg.datapath
+        if switch_name(dp.id) is None:
+            self.logger.error("Unconfigured datapath %s; refusing forwarding", dp.id)
+            return
+        self.datapaths[dp.id] = dp
+        # Own rules only; FIFO on this connection orders deletion before additions.
+        self.delete_flow(dp)
+        # Ryu's legacy REST converter cannot express this Nicira field. A higher
+        # priority owned drop protects both reactive and manual example rules.
+        self.add_flow(dp, 65000, forwarding_match(dp.ofproto_parser,
+            eth_type=0x0800, ip_frag=(1, 1)), [])
+        self.add_flow(dp, 0, dp.ofproto_parser.OFPMatch(),
+                      [dp.ofproto_parser.OFPActionOutput(
+                          dp.ofproto.OFPP_CONTROLLER, dp.ofproto.OFPCML_NO_BUFFER)])
+        self.logger.info("Switch connected: dpid=%s (QoS=%s)", dp.id, self.qos_enabled)
 
-        self.datapaths[dpid] = datapath
-        self.logger.info("Switch connected: dpid=%s (QoS=%s)", dpid, self.qos_enabled)
+    def packet_out(self, msg, actions, data=None):
+        dp = msg.datapath
+        # Generated ARP replies are separate packets, never switch-buffer contents.
+        generated = data is not None
+        buffer_id = dp.ofproto.OFP_NO_BUFFER if generated else msg.buffer_id
+        dp.send_msg(dp.ofproto_parser.OFPPacketOut(
+            datapath=dp, buffer_id=buffer_id,
+            in_port=dp.ofproto.OFPP_CONTROLLER if generated else msg.match["in_port"],
+            actions=actions, data=data if generated else (
+                msg.data if buffer_id == dp.ofproto.OFP_NO_BUFFER else None)))
 
-        # Table-miss entry
-        match = parser.OFPMatch()
-        actions = [parser.OFPActionOutput(ofproto.OFPP_CONTROLLER, ofproto.OFPCML_NO_BUFFER)]
-        self.add_flow(datapath, 0, match, actions)
-
-        # Install disaster-scenario rules once switch is known
-        self.install_scenario_flows(datapath)
-
-    def install_scenario_flows(self, datapath):
-        """Install explicit OpenFlow rules reflecting disaster-response policy."""
-        dpid = datapath.id
-        parser = datapath.ofproto_parser
-
-        # Rule 1: Hospital -> Ambulance via priority path (s1 -> s3 -> s2)
-        # Installed on s1: forward Hospital traffic toward s3 instead of direct s1->s2
-        if dpid == SWITCH_S1:
-            match = parser.OFPMatch(
-                eth_type=0x0800,
-                ipv4_src=HOSPITAL_IP,
-                ipv4_dst=AMBULANCE_IP,
-            )
-            actions = self.actions_with_queue(datapath, S1_PORT_TO_S3, QUEUE_HIGH_PRIORITY)
-            self.add_flow(datapath, 500, match, actions, idle=0, hard=0)
-            self.logger.info("Installed Hospital priority path rule on s1 (dpid=1)")
-
-        # Rule 2: s3 relay — Hospital->Ambulance continues toward s2
-        if dpid == SWITCH_S3:
-            match = parser.OFPMatch(
-                eth_type=0x0800,
-                ipv4_src=HOSPITAL_IP,
-                ipv4_dst=AMBULANCE_IP,
-            )
-            actions = self.actions_with_queue(datapath, S3_PORT_TO_S2, QUEUE_HIGH_PRIORITY)
-            self.add_flow(datapath, 500, match, actions, idle=0, hard=0)
-            self.logger.info("Installed Hospital relay rule on s3 (dpid=3)")
-
-        # Rule 3: Ambulance data — match TCP dst port 5001 (any source)
-        if dpid == SWITCH_S2:
-            match = parser.OFPMatch(
-                eth_type=0x0800,
-                ip_proto=6,
-                ipv4_dst=AMBULANCE_IP,
-                tcp_dst=PORT_AMBULANCE_DATA,
-            )
-            actions = self.actions_with_queue(datapath, S2_PORT_H4_AMBULANCE, QUEUE_HIGH_PRIORITY)
-            self.add_flow(datapath, 600, match, actions, idle=0, hard=0)
-            self.logger.info("Installed Ambulance TCP/5001 rule on s2 (dpid=2)")
-
-        # Rule 4: Public helpline -> CommandCenter — low priority queue
-        if dpid == SWITCH_S1:
-            match = parser.OFPMatch(
-                eth_type=0x0800,
-                ip_proto=6,
-                ipv4_src=PUBLIC_HELPLINE_IP,
-                ipv4_dst=COMMAND_CENTER_IP,
-                tcp_src=PORT_PUBLIC_HELPLINE,
-            )
-            actions = self.actions_with_queue(datapath, S1_PORT_H1_COMMAND, QUEUE_LOW_PRIORITY)
-            self.add_flow(datapath, 400, match, actions, idle=0, hard=0)
-            self.logger.info("Installed PublicHelpline low-priority rule on s1")
-
-        # Rule 5: Rescue team location updates (UDP/6001) — high priority on s3
-        if dpid == SWITCH_S3:
-            match = parser.OFPMatch(
-                eth_type=0x0800,
-                ip_proto=17,
-                ipv4_src=RESCUE_IP,
-                udp_src=PORT_RESCUE_LOCATION,
-            )
-            actions = self.actions_with_queue(datapath, datapath.ofproto.OFPP_FLOOD, QUEUE_HIGH_PRIORITY)
-            self.add_flow(datapath, 550, match, actions, idle=0, hard=0)
-            self.logger.info("Installed RescueTeam UDP/6001 rule on s3")
-
-    # ------------------------------------------------------------------
-    # MAC learning (fallback for traffic not covered by proactive rules)
-    # ------------------------------------------------------------------
     @set_ev_cls(ofp_event.EventOFPPacketIn, MAIN_DISPATCHER)
     def packet_in_handler(self, ev):
-        msg = ev.msg
-        datapath = msg.datapath
-        ofproto = datapath.ofproto
-        parser = datapath.ofproto_parser
-        in_port = msg.match["in_port"]
-
+        msg, dp = ev.msg, ev.msg.datapath
+        switch = switch_name(dp.id)
+        if switch is None:
+            return
         pkt = packet.Packet(msg.data)
-        eth = pkt.get_protocols(ethernet.ethernet)[0]
-        if eth.ethertype == 0x86DD:
-            return  # ignore IPv6 for Review 1
-
-        dst, src = eth.dst, eth.src
-        dpid = datapath.id
-        self.mac_to_port.setdefault(dpid, {})
-        self.mac_to_port[dpid][src] = in_port
-
-        # Determine output port
-        if dst in self.mac_to_port[dpid]:
-            out_port = self.mac_to_port[dpid][dst]
-        else:
-            out_port = ofproto.OFPP_FLOOD
-
-        # Map queue based on L4 match criteria (QoS policy)
-        queue_id = self.classify_queue(pkt)
-
-        actions = self.actions_with_queue(datapath, out_port, queue_id)
-
-        if out_port != ofproto.OFPP_FLOOD:
-            match = parser.OFPMatch(in_port=in_port, eth_dst=dst, eth_src=src)
-            if msg.buffer_id != ofproto.OFP_NO_BUFFER:
-                self.add_flow(datapath, 1, match, actions, buffer_id=msg.buffer_id)
+        eth = pkt.get_protocol(ethernet.ethernet)
+        if eth is None:
+            return
+        source = HOST_BY_MAC.get(eth.src)
+        ingress = msg.match["in_port"]
+        if source is None or ingress != egress(switch, source):
+            return
+        request = pkt.get_protocol(arp.arp)
+        if request is not None:
+            # Proxy only at the registered local attachment. Never flood the core.
+            if (source["switch"] != switch or request.opcode != arp.ARP_REQUEST
+                    or request.src_ip != source["ip"] or request.src_mac != source["mac"]
+                    or request.hwtype != 1 or request.proto != 0x0800
+                    or request.hlen != 6 or request.plen != 4):
                 return
-            self.add_flow(datapath, 1, match, actions)
-
-        out = parser.OFPPacketOut(
-            datapath=datapath,
-            buffer_id=msg.buffer_id,
-            in_port=in_port,
-            actions=actions,
-            data=msg.data,
-        )
-        datapath.send_msg(out)
+            target = HOST_BY_IP.get(request.dst_ip)
+            if target is None:
+                return
+            reply = packet.Packet()
+            reply.add_protocol(ethernet.ethernet(dst=eth.src, src=target["mac"], ethertype=0x0806))
+            reply.add_protocol(arp.arp(opcode=arp.ARP_REPLY, src_mac=target["mac"],
+                                      src_ip=target["ip"], dst_mac=eth.src, dst_ip=source["ip"]))
+            reply.serialize()
+            self.packet_out(msg, [dp.ofproto_parser.OFPActionOutput(ingress)], reply.data)
+            return
+        ip = pkt.get_protocol(ipv4.ipv4)
+        if (ip is None or ip.src != source["ip"] or ip.offset or ip.flags & 1):
+            return
+        target = HOST_BY_IP.get(ip.dst)
+        if target is None or eth.dst != target["mac"]:
+            return
+        out_port = egress(switch, target)
+        if out_port == ingress:
+            return
+        fields = dict(in_port=ingress, eth_src=eth.src, eth_dst=eth.dst,
+                      eth_type=0x0800, ipv4_src=ip.src, ipv4_dst=ip.dst, ip_proto=ip.proto,
+                      ip_frag=0)
+        # Every classifier input must be represented in the installed match.
+        transport = pkt.get_protocol(tcp.tcp if ip.proto == 6 else udp.udp) if ip.proto in (6, 17) else None
+        if ip.proto in (6, 17):
+            if transport is None:
+                return
+            prefix = "tcp" if ip.proto == 6 else "udp"
+            fields[prefix + "_src"] = transport.src_port
+            fields[prefix + "_dst"] = transport.dst_port
+        actions = self.actions_with_queue(dp, out_port, self.classify_queue(pkt))
+        self.add_flow(dp, 10, forwarding_match(dp.ofproto_parser, **fields), actions,
+                      buffer_id=msg.buffer_id, idle=30)
+        if msg.buffer_id == dp.ofproto.OFP_NO_BUFFER:
+            self.packet_out(msg, actions)
 
     def classify_queue(self, pkt):
         """
@@ -317,6 +222,11 @@ class FlowManagerApp(app_manager.RyuApp):
     # ------------------------------------------------------------------
     # Periodic stats collection (for monitoring / Review 1 evidence)
     # ------------------------------------------------------------------
+    @set_ev_cls(ofp_event.EventOFPErrorMsg, [CONFIG_DISPATCHER, MAIN_DISPATCHER])
+    def error_msg_handler(self, ev):
+        msg = ev.msg
+        self.logger.error("OPENFLOW_ERROR dpid=%s type=%s code=%s", msg.datapath.id, msg.type, msg.code)
+
     @set_ev_cls(ofp_event.EventOFPStateChange, [MAIN_DISPATCHER, DEAD_DISPATCHER])
     def state_change_handler(self, ev):
         datapath = ev.datapath

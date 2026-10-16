@@ -1,0 +1,122 @@
+{
+  "started_utc": "2026-10-15T18:25:13.707861+00:00",
+  "scope": "Offline prototype and Phase 1 regressions",
+  "live_validated": false,
+  "checks": [
+    {
+      "command": [
+        "/usr/bin/python3",
+        "-m",
+        "unittest",
+        "tests.test_foundation",
+        "tests.test_phase2_model",
+        "-v"
+      ],
+      "returncode": 0,
+      "stdout": "teardown: s1-eth1\nteardown: s2-eth1\nteardown: s2-eth2\nteardown: s3-eth1\nteardown: s1-eth2\nteardown: s1-eth3\nteardown: s2-eth3\nteardown: s2-eth4\nteardown: s3-eth2\nteardown: s3-eth3\nteardown: s1-eth4\n",
+      "stderr": "test_invalid_numbers_never_become_zero (tests.test_foundation.ChartTests.test_invalid_numbers_never_become_zero) ... ok\ntest_missing_duplicate_and_mismatched_rows_rejected (tests.test_foundation.ChartTests.test_missing_duplicate_and_mismatched_rows_rejected) ... ok\ntest_missing_input_preserves_existing_real_csv (tests.test_foundation.ChartTests.test_missing_input_preserves_existing_real_csv) ... ok\ntest_sample_only_creates_separate_labelled_preview (tests.test_foundation.ChartTests.test_sample_only_creates_separate_labelled_preview) ... ok\ntest_existing_lab_is_refused (tests.test_foundation.HarnessTests.test_existing_lab_is_refused) ... ok\ntest_queue_counters_require_both_real_classes (tests.test_foundation.HarnessTests.test_queue_counters_require_both_real_classes) ... ok\ntest_unprivileged_preflight_starts_nothing (tests.test_foundation.HarnessTests.test_unprivileged_preflight_starts_nothing) ... ok\ntest_every_path_terminates_without_revisiting (tests.test_foundation.InventoryTests.test_every_path_terminates_without_revisiting) ... ok\ntest_manual_rule_port_and_binding (tests.test_foundation.InventoryTests.test_manual_rule_port_and_binding) ... ok\ntest_shell_helpers_load_the_shared_inventory (tests.test_foundation.InventoryTests.test_shell_helpers_load_the_shared_inventory) ... ok\ntest_topology_uses_exact_inventory_ports (tests.test_foundation.InventoryTests.test_topology_uses_exact_inventory_ports) ... ok\ntest_unconfigured_switch_rejected (tests.test_foundation.InventoryTests.test_unconfigured_switch_rejected) ... ok\ntest_concurrent_start_and_scoped_process_cleanup (tests.test_foundation.MeasurementTests.test_concurrent_start_and_scoped_process_cleanup) ... ok\ntest_failed_client_cleans_up_owned_servers (tests.test_foundation.MeasurementTests.test_failed_client_cleans_up_owned_servers) ... ok\ntest_failed_measurement_cannot_be_saved_as_csv (tests.test_foundation.MeasurementTests.test_failed_measurement_cannot_be_saved_as_csv) ... ok\ntest_iperf_units_and_final_summary (tests.test_foundation.MeasurementTests.test_iperf_units_and_final_summary) ... ok\ntest_manual_mode_needs_no_mode_or_privileges (tests.test_foundation.MeasurementTests.test_manual_mode_needs_no_mode_or_privileges) ... ok\ntest_missing_host_objects_are_explicit_failure (tests.test_foundation.MeasurementTests.test_missing_host_objects_are_explicit_failure) ... ok\ntest_ping_loss_and_p95_are_preserved (tests.test_foundation.MeasurementTests.test_ping_loss_and_p95_are_preserved) ... ok\ntest_foreign_qos_is_not_detached (tests.test_foundation.QoSTests.test_foreign_qos_is_not_detached) ... ok\ntest_invalid_rates_abort_before_ovs (tests.test_foundation.QoSTests.test_invalid_rates_abort_before_ovs) ... ok\ntest_missing_port_aborts_before_any_mutation (tests.test_foundation.QoSTests.test_missing_port_aborts_before_any_mutation) ... ok\ntest_owned_setup_repeated_then_teardown_does_not_leak_rows (tests.test_foundation.QoSTests.test_owned_setup_repeated_then_teardown_does_not_leak_rows) ... ok\ntest_teardown_visits_every_managed_port_without_global_destroy (tests.test_foundation.QoSTests.test_teardown_visits_every_managed_port_without_global_destroy) ... ok\ntest_existing_bridge_is_refused_before_any_interface_mutation (tests.test_phase2_model.Phase2HarnessSafetyTests.test_existing_bridge_is_refused_before_any_interface_mutation) ... ok\ntest_no_root_fails_before_any_ovs_or_interface_operation (tests.test_phase2_model.Phase2HarnessSafetyTests.test_no_root_fails_before_any_ovs_or_interface_operation) ... ok\ntest_distant_failure_does_not_pretend_to_move_a_miimon_bond (tests.test_phase2_model.Phase2ModelTests.test_distant_failure_does_not_pretend_to_move_a_miimon_bond) ... ok\ntest_legal_mobility_changes_both_paths_and_stays_after_restoration (tests.test_phase2_model.Phase2ModelTests.test_legal_mobility_changes_both_paths_and_stays_after_restoration) ... ok\ntest_permitted_matrix_and_paths_in_both_directions (tests.test_phase2_model.Phase2ModelTests.test_permitted_matrix_and_paths_in_both_directions) ... ok\ntest_switch_loss_and_total_isolation_have_distinct_results (tests.test_phase2_model.Phase2ModelTests.test_switch_loss_and_total_isolation_have_distinct_results) ... ok\ntest_topology_has_exact_ports_and_dual_attachment (tests.test_phase2_model.Phase2ModelTests.test_topology_has_exact_ports_and_dual_attachment) ... ok\ntest_unknown_or_incomplete_state_never_creates_a_route (tests.test_phase2_model.Phase2ModelTests.test_unknown_or_incomplete_state_never_creates_a_route) ... ok\ntest_wrong_attachment_cannot_move_registered_identity (tests.test_phase2_model.Phase2ModelTests.test_wrong_attachment_cannot_move_registered_identity) ... ok\n\n----------------------------------------------------------------------\nRan 33 tests in 2.162s\n\nOK\n",
+      "passed": true
+    },
+    {
+      "command": [
+        "/home/rithvikmukka/sdn-lab/ryu/ryu-env/bin/python",
+        "-m",
+        "unittest",
+        "tests.test_controller",
+        "tests.test_protocol",
+        "tests.test_phase2_controller",
+        "tests.test_phase2_protocol",
+        "-v"
+      ],
+      "returncode": 0,
+      "stdout": "",
+      "stderr": "test_all_registered_directions_at_every_switch (tests.test_controller.ControllerTests) ... ok\ntest_arp_cannot_poison_later_ip_queue (tests.test_controller.ControllerTests) ... ok\ntest_base_switch_recovers_from_move_and_preserves_zero_buffer (tests.test_controller.ControllerTests) ... ok\ntest_buffered_arp_reply_has_own_data_and_no_buffer (tests.test_controller.ControllerTests) ... ok\ntest_fragmented_and_malformed_frames_dropped (tests.test_controller.ControllerTests) ... ok\ntest_ipv6_lldp_and_unknown_broadcast_are_dropped (tests.test_controller.ControllerTests) ... ok\ntest_manual_identity_fields_survive_actual_rest_conversion (tests.test_controller.ControllerTests) ... ok\ntest_proxy_arp_is_reply_only_no_learned_rule_or_flood (tests.test_controller.ControllerTests) ... ok\ntest_proxy_arp_validates_binding_and_local_attachment (tests.test_controller.ControllerTests) ... ok\ntest_qos_disabled_has_output_only (tests.test_controller.ControllerTests) ... ok\ntest_reconnect_deletes_only_owned_rules_before_table_miss (tests.test_controller.ControllerTests) ... ok\ntest_spoofed_ip_mac_port_and_destination_dropped (tests.test_controller.ControllerTests) ... ok\ntest_tcp_source_classification_is_in_flow_match (tests.test_controller.ControllerTests) ... ok\ntest_udp_classification_and_fields (tests.test_controller.ControllerTests) ... ok\ntest_unknown_datapath_is_not_programmed (tests.test_controller.ControllerTests) ... Unconfigured datapath 99; refusing forwarding\nok\ntest_warmed_non_transport_rules_exclude_fragments (tests.test_controller.ControllerTests) ... ok\ntest_zero_buffer_id_installs_once_without_packet_out (tests.test_controller.ControllerTests) ... ok\ntest_real_controller_handshake_proxy_arp_and_classified_flow (tests.test_protocol.ProtocolSmokeTests) ... ok\ntest_bad_arp_unknown_broadcast_and_wrong_attachment_are_silent (tests.test_phase2_controller.Phase2ControllerTests) ... ok\ntest_bad_inventory_and_stale_connection_events_fail_closed (tests.test_phase2_controller.Phase2ControllerTests) ... PORT_INVENTORY_MISMATCH p2s1\nok\ntest_blocked_or_forwarding_disabled_ports_are_not_usable (tests.test_phase2_controller.Phase2ControllerTests) ... ok\ntest_bond_garp_updates_return_path_without_flood (tests.test_phase2_controller.Phase2ControllerTests) ... ok\ntest_disconnect_and_openflow_error_withdraw_routes (tests.test_phase2_controller.Phase2ControllerTests) ... OPENFLOW_ERROR dpid=203 type=3 code=1\nok\ntest_features_wait_for_complete_validated_port_descriptions (tests.test_phase2_controller.Phase2ControllerTests) ... ok\ntest_first_packet_uses_same_routing_actions_as_installed_rules (tests.test_phase2_controller.Phase2ControllerTests) ... ok\ntest_fragment_low_ttl_invalid_ttl_reason_and_wrong_gateway_are_dropped (tests.test_phase2_controller.Phase2ControllerTests) ... ok\ntest_gateway_proxy_arp_and_no_cross_subnet_arp (tests.test_phase2_controller.Phase2ControllerTests) ... ok\ntest_guest_and_spoofed_identity_have_no_permitted_cached_rule (tests.test_phase2_controller.Phase2ControllerTests) ... ok\ntest_port_down_withdraws_primary_path_and_all_writes_are_owned (tests.test_phase2_controller.Phase2ControllerTests) ... ok\ntest_route_rules_rewrite_and_decrement_once_in_both_directions (tests.test_phase2_controller.Phase2ControllerTests) ... ok\ntest_real_three_peer_port_validation_routing_arp_and_bond_mobility (tests.test_phase2_protocol.Phase2WireTests) ... ok\n\n----------------------------------------------------------------------\nRan 31 tests in 1.037s\n\nOK\n",
+      "passed": true
+    },
+    {
+      "check": "in-memory Python compile (no execution)",
+      "files": [
+        "config/__init__.py",
+        "config/lab.py",
+        "config/phase2.py",
+        "controller/base_switch_app.py",
+        "controller/flow_manager_app.py",
+        "controller/phase2_app.py",
+        "monitoring/stats_reader.py",
+        "performance/generate_charts.py",
+        "performance/run_tests.py",
+        "qos/manage.py",
+        "scripts/record_environment.py",
+        "scripts/validate_phase2.py",
+        "test_loop.py",
+        "test_ping.py",
+        "tests/__init__.py",
+        "tests/lab_harness.py",
+        "tests/phase2_harness.py",
+        "tests/test_controller.py",
+        "tests/test_foundation.py",
+        "tests/test_phase2_controller.py",
+        "tests/test_phase2_model.py",
+        "tests/test_phase2_protocol.py",
+        "tests/test_protocol.py",
+        "topology/disaster_topo.py",
+        "topology/phase2_topo.py",
+        "topology/run_network.py"
+      ],
+      "passed": true,
+      "errors": []
+    },
+    {
+      "check": "shell syntax",
+      "file": "demo_scripts/common_env.sh",
+      "passed": true,
+      "stderr": ""
+    },
+    {
+      "check": "shell syntax",
+      "file": "demo_scripts/manual_flow_insertion.sh",
+      "passed": true,
+      "stderr": ""
+    },
+    {
+      "check": "shell syntax",
+      "file": "monitoring/capture_traffic.sh",
+      "passed": true,
+      "stderr": ""
+    },
+    {
+      "check": "shell syntax",
+      "file": "qos/qos_setup.sh",
+      "passed": true,
+      "stderr": ""
+    },
+    {
+      "check": "shell syntax",
+      "file": "qos/qos_teardown.sh",
+      "passed": true,
+      "stderr": ""
+    },
+    {
+      "check": "JSON parse",
+      "file": "config/acceptance.json",
+      "passed": true
+    },
+    {
+      "check": "JSON parse",
+      "file": "qos/queue_config.json",
+      "passed": true
+    },
+    {
+      "check": "tracked diff whitespace",
+      "passed": true,
+      "output": ""
+    }
+  ],
+  "limits": [
+    "No Mininet/OVS dataplane executed",
+    "Only local-carrier bond failover is implemented",
+    "No full-topology resource or live failure validation",
+    "No Phase 3 service-policy engine"
+  ],
+  "passed": true
+}

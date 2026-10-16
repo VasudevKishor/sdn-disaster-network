@@ -1,0 +1,18 @@
+{
+  "version": "phase2-expanded-readiness-2026-10-16",
+  "matrix_probes": 100,
+  "matrix_parallel": 12,
+  "repetitions": 3,
+  "controller_startup_sec": 60,
+  "load_duration_sec": 15,
+  "load_rate_per_stream": "10M",
+  "load_streams": 4,
+  "load_readiness_sec": 5,
+  "load_ready_bytes_per_stream": 65536,
+  "load_probe_count": 50,
+  "load_probe_delivery": 1.0,
+  "load_probe_p95_ms": 250,
+  "minimum_available_memory_mib": 512,
+  "maximum_average_cpu_percent": 85,
+  "note": "Phase 2 resource smoke gate: four TCP streams requesting the unchanged iperf rate 10M each (binary units, approximately 41.94 Mbps total) at a shared 50 Mbps receiver. Receiver payload readiness precedes probes; startup attempts are retained separately. ICMP under feasible load is not the later urgent-message application or adaptive-policy comparison."
+}

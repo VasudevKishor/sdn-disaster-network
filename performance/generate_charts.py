@@ -17,6 +17,8 @@ Usage:
 import argparse
 import csv
 import os
+import math
+import tempfile
 import sys
 
 try:
@@ -40,9 +42,12 @@ def load_csv(path):
 
 def to_float(val):
     try:
-        return float(val) if val not in (None, "", "None") else 0.0
-    except ValueError:
-        return 0.0
+        result = float(val)
+        if not math.isfinite(result) or result < 0:
+            raise ValueError("Measurement must be finite and nonnegative")
+        return result
+    except (TypeError, ValueError) as exc:
+        raise ValueError("Missing or invalid measurement: %r" % val) from exc
 
 
 def build_chart_data(baseline_rows, qos_rows):
@@ -50,7 +55,22 @@ def build_chart_data(baseline_rows, qos_rows):
     baseline_tp, qos_tp = [], []
     baseline_lat, qos_lat = [], []
 
-    qos_by_class = {r["flow_class"]: r for r in qos_rows}
+    def index(rows):
+        result = {}
+        for row in rows:
+            cls = row["flow_class"]
+            if cls in result:
+                raise ValueError("Duplicate flow class: " + cls)
+            result[cls] = row
+        if not result:
+            raise ValueError("No measurements")
+        return result
+    baseline_by_class, qos_by_class = index(baseline_rows), index(qos_rows)
+    if baseline_by_class.keys() != qos_by_class.keys():
+        raise ValueError("Measured flow classes do not match")
+    for cls in baseline_by_class:
+        if baseline_by_class[cls]["flow_name"] != qos_by_class[cls]["flow_name"]:
+            raise ValueError("Workloads do not match for " + cls)
     for row in baseline_rows:
         cls = row["flow_class"]
         name = row.get("flow_name", cls)
@@ -93,13 +113,13 @@ def plot_grouped_bars(labels, baseline_vals, qos_vals, ylabel, title, output_pat
 
 def generate_sample_data(output_dir):
     """Create sample CSV files for chart preview when real tests haven't been run."""
-    os.makedirs(output_dir, exist_ok=True)
+    os.makedirs(output_dir, exist_ok=False)
     sample = [
         ["mode", "flow_class", "flow_name", "throughput_mbps", "latency_avg_ms", "timestamp"],
         ["baseline", "high_priority", "Hospital_to_Ambulance", "18.5", "12.3", "sample"],
-        ["baseline", "low_priority", "PublicHelpline_to_CommandCenter", "17.8", "14.1", "sample"],
+        ["baseline", "low_priority", "PublicHelpline_to_Ambulance", "17.8", "14.1", "sample"],
         ["qos", "high_priority", "Hospital_to_Ambulance", "22.4", "9.8", "sample"],
-        ["qos", "low_priority", "PublicHelpline_to_CommandCenter", "4.2", "28.6", "sample"],
+        ["qos", "low_priority", "PublicHelpline_to_Ambulance", "4.2", "28.6", "sample"],
     ]
     baseline_path = os.path.join(output_dir, "perf_baseline.csv")
     qos_path = os.path.join(output_dir, "perf_qos.csv")
@@ -129,31 +149,37 @@ def main():
     )
     parser.add_argument(
         "--sample", action="store_true",
-        help="Generate sample CSV data if real results are missing",
+        help="Create a separate, labelled synthetic preview directory",
     )
     args = parser.parse_args()
 
-    if args.sample or not os.path.exists(args.baseline) or not os.path.exists(args.qos):
-        print("Using/generating sample performance data for chart demo...")
-        results_dir = os.path.dirname(args.baseline)
-        args.baseline, args.qos = generate_sample_data(results_dir)
-
+    if args.sample:
+        os.makedirs(args.output_dir, exist_ok=True)
+        args.output_dir = tempfile.mkdtemp(prefix="synthetic_preview_", dir=args.output_dir)
+        args.baseline, args.qos = generate_sample_data(os.path.join(args.output_dir, "synthetic_data"))
+        print("SYNTHETIC PREVIEW: " + args.output_dir)
+    elif not os.path.isfile(args.baseline) or not os.path.isfile(args.qos):
+        parser.error("Both measured CSV files are required; use --sample for a separate preview")
     os.makedirs(args.output_dir, exist_ok=True)
 
     baseline_rows = load_csv(args.baseline)
     qos_rows = load_csv(args.qos)
+    synthetic_flags = {r.get("timestamp") == "sample" for r in baseline_rows + qos_rows}
+    if len(synthetic_flags) > 1:
+        raise ValueError("Cannot compare synthetic and measured data")
+    synthetic = args.sample or synthetic_flags == {True}
     labels, b_tp, q_tp, b_lat, q_lat = build_chart_data(baseline_rows, qos_rows)
 
     plot_grouped_bars(
         labels, b_tp, q_tp,
         ylabel="Throughput (Mbps)",
-        title="Throughput: Baseline vs QoS (Disaster Response Network)",
+        title=("SYNTHETIC PREVIEW — " if synthetic else "") + "Throughput: Baseline vs QoS",
         output_path=os.path.join(args.output_dir, "throughput_comparison.png"),
     )
     plot_grouped_bars(
         labels, b_lat, q_lat,
         ylabel="Latency (ms avg)",
-        title="Latency: Baseline vs QoS (Disaster Response Network)",
+        title=("SYNTHETIC PREVIEW — " if synthetic else "") + "Latency: Baseline vs QoS",
         output_path=os.path.join(args.output_dir, "latency_comparison.png"),
     )
 

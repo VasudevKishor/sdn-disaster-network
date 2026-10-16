@@ -1,11 +1,5 @@
 #!/usr/bin/env bash
-# qos_teardown.sh - Remove OVS QoS queues (for baseline/no-QoS tests)
-
+# Shared inventory, complete validation and scoped cleanup live in manage.py.
 set -euo pipefail
-
-SWITCH="${QOS_SWITCH:-s1}"
-PORT="${QOS_PORT:-${SWITCH}-eth1}"
-
-echo "=== Removing QoS from ${PORT} ==="
-ovs-vsctl --if-exists clear port "${PORT}" qos
-echo "Done. Port ${PORT} is back to best-effort forwarding."
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+exec python3 "${SCRIPT_DIR}/manage.py" teardown

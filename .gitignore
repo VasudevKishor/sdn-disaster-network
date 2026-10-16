@@ -8,6 +8,9 @@ venv/
 # Runtime / demo artifacts (keep directory structure via .gitkeep)
 monitoring/evidence/*
 !monitoring/evidence/.gitkeep
+!monitoring/evidence/phase1_environment_2026-10-15.json
+!monitoring/evidence/phase1_offline_2026-10-15.json
+!monitoring/evidence/phase2_offline_2026-10-15.json
 performance/results/*
 !performance/results/.gitkeep
 performance/charts/*

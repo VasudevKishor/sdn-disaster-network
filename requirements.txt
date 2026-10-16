@@ -1,2 +1,4 @@
-ryu>=4.34
-matplotlib>=3.7
+# Use Python 3.9 and requirements-controller.lock for the recorded controller.
+# System Mininet and charts use Python 3.12; see docs/11_phase1.md.
+ryu==4.34
+matplotlib==3.9.4

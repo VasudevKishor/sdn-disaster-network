@@ -7,7 +7,7 @@ Usage (from project root, as root):
 
 Connects all OVS switches to RYU at 127.0.0.1:6633 (OpenFlow 1.3).
 Start the controller first in a separate terminal:
-  ryu-manager controller/base_switch_app.py
+  ryu-manager --ofp-tcp-listen-port 6633 controller/base_switch_app.py
 """
 
 import sys
@@ -44,23 +44,22 @@ def run():
         switch=OVSSwitch,
         link=TCLink,
         autoSetMacs=True,
-        autoStaticArp=True,
+        autoStaticArp=False,
     )
 
     print_agency_map()
     info("*** Starting network\n")
-    net.start()
-
-    info("\n*** Controller check (run in another shell while network is up):\n")
-    info("    ovs-vsctl show\n")
-    info("    ovs-ofctl -O OpenFlow13 show s1\n\n")
-
-    info("*** Running pingall for baseline connectivity evidence\n")
-    net.pingAll()
-
-    info("\n*** Mininet CLI ready. Type 'exit' to stop.\n")
-    CLI(net)
-    net.stop()
+    try:
+        net.start()
+        if not net.waitConnected(timeout=15):
+            raise RuntimeError("Controller connection timed out")
+        info("\n*** Inspect with ovs-ofctl -O OpenFlow13 dump-flows s1\n")
+        info("*** Warm-up pingall (automated acceptance uses tests.lab_harness)\n")
+        net.pingAll()
+        info("\n*** Mininet CLI ready. Type 'exit' to stop.\n")
+        CLI(net)
+    finally:
+        net.stop()
 
 
 if __name__ == "__main__":

@@ -1,425 +1,200 @@
-# National Disaster Response Network — SDN Simulation (Review 1)
+# SDN emergency communications project
 
-Mininet + RYU + Open vSwitch project for a **National Disaster Management Authority**
-network backbone. Review 1 builds the foundational SDN infrastructure: topology,
-custom flow rules, QoS queues, traffic monitoring, and performance comparison.
+The agreed project is [PROJECT_DESCRIPTION_AND_PLAN.md](PROJECT_DESCRIPTION_AND_PLAN.md).
+Read [HANDOFF.md](HANDOFF.md) for current progress, tested results and remaining gates.
+**Phases 1–3 have passed their implemented live gates.** The expanded
+two-district network has 20 switches and 24 endpoints. Phase 3 passed three full
+live repetitions, independently audited on 2026-10-16. The four simplified Phase 4
+demo helpers are implemented; their live rehearsal gate is pending. No unchanged
+Phase 3 rerun is needed. Commands and student scripts are in the
+[Phase 4 runbook](docs/15_phase4_demos.md).
+Profiles, service permissions, joint capacity admission, queues, controlled
+deployment/rollback and local operator commands are described in the
+[Phase 3 guide](docs/14_phase3.md).
 
-**Out of scope for Review 1:** link failures, rerouting, attack detection (later reviews).
-
----
-
-## Prerequisites (Ubuntu/Linux)
+Validate the new congestion demo first, then all four demos and resets:
 
 ```bash
-# Mininet + OVS
-sudo apt-get update
-sudo apt-get install -y mininet openvswitch-switch iperf tcpdump curl
-
-# RYU SDN controller
-sudo apt-get install -y python3-pip
-pip3 install ryu
-
-# Performance charts
-pip3 install matplotlib
+sudo python3 -m tests.phase4_harness --demo congestion --repetitions 1
+sudo python3 -m tests.phase4_harness --repetitions 3
 ```
 
-Verify:
+For separate student-operated commands on one running lab:
 
 ```bash
+sudo python3 -m demo_scripts.session
+```
+
+Use its printed session directory with `demo_scripts.control` in a second
+terminal; follow the runbook's setup, injection, inspection, correction,
+verification and reset sequence for each member.
+
+The preserved Phase 1 topology is a three-switch **chain**, `s1--s2--s3`, with seven
+hosts in `10.0.0.0/24`. The third core link remains disabled. This is the small
+foundation, not the completed disaster-response system.
+
+[Phase 1 guide](docs/11_phase1.md) documents commands, packet journeys, static
+admission limits, shaping interactions, evidence and acceptance thresholds.
+Older numbered tutorials in `docs/` describe historical Review 1 behavior.
+
+## Environment
+
+Use system Python for Mininet/charts and the existing Python 3.9 Ryu environment:
+
+```bash
+python3 --version
+../ryu/ryu-env/bin/python --version
 mn --version
-ryu-manager --version
 ovs-vsctl --version
+iperf --version
 ```
 
----
+The recorded system is Ubuntu 24.04.4, Python 3.12.3, Mininet 2.3.0, OVS 3.3.4
+and iperf2 2.1.9. Controller packages are frozen in
+[requirements-controller.lock](requirements-controller.lock); the existing
+environment uses Ryu 4.34 and eventlet 0.30.2. Do not install that lock into system
+Python. No controller framework migration is needed.
 
-## Project Structure
+## Automated checks
 
-```
-sdn-disaster-network/
-├── topology/
-│   ├── disaster_topo.py       # Custom Mininet topology (3 switches, 7 hosts)
-│   └── run_network.py         # Launch script with pingall
-├── controller/
-│   ├── base_switch_app.py     # Learning switch (Req 1 starting point)
-│   └── flow_manager_app.py    # Custom flows + QoS mapping (Req 2–3)
-├── qos/
-│   ├── queue_config.json      # Queue definitions (review artifact)
-│   ├── qos_setup.sh           # Apply OVS HTB queues
-│   └── qos_teardown.sh        # Remove QoS for baseline tests
-├── monitoring/
-│   ├── capture_traffic.sh     # tcpdump + competing iperf flows
-│   ├── stats_reader.py        # RYU REST + ovs-ofctl stats
-│   └── evidence/              # Saved pcaps, logs, JSON snapshots
-├── performance/
-│   ├── run_tests.py           # iperf/ping tests → CSV/JSON
-│   ├── generate_charts.py     # matplotlib charts from CSV
-│   ├── results/               # Raw test output
-│   └── charts/                # Generated PNG charts
-├── demo_scripts/
-│   ├── common_env.sh
-│   └── manual_flow_insertion.sh  # curl REST API demo (Req 2)
-└── README.md
-```
-
----
-
-## Agency Host Map
-
-| Host | Agency            | IP        | Switch | Priority |
-|------|-------------------|-----------|--------|----------|
-| h1   | CommandCenter     | 10.0.0.1  | s1     | normal   |
-| h2   | Hospital          | 10.0.0.2  | s1     | high     |
-| h3   | Police            | 10.0.0.3  | s2     | normal   |
-| h4   | Ambulance         | 10.0.0.4  | s2     | high     |
-| h5   | RescueTeam        | 10.0.0.5  | s3     | high     |
-| h6   | Drone             | 10.0.0.6  | s3     | medium   |
-| h7   | PublicHelpline    | 10.0.0.7  | s1     | low      |
-
-**Simulated traffic ports (assumptions for viva):**
-
-| Port | Traffic type              |
-|------|---------------------------|
-| 5001 | Ambulance patient data    |
-| 5002 | Hospital critical data    |
-| 6001 | Rescue location updates   |
-| 8080 | Public helpline bulk      |
-| 9000 | Drone live video          |
-
----
-
-## Quick Start (Full Review Demo)
-
-Open **3 terminals** on your Linux VM:
-
-### Terminal 1 — RYU Controller
+Run from the project root:
 
 ```bash
-cd sdn-disaster-network
-ryu-manager ryu.app.ofctl_rest controller/flow_manager_app.py
+python3 -m unittest -v tests.test_foundation
+../ryu/ryu-env/bin/python -m unittest -v tests.test_controller tests.test_protocol
 ```
 
-Expected log lines:
+The first command covers inventory, measurement validation, chart safety, QoS
+ownership and harness guards. The second uses real Ryu packets/OpenFlow messages
+and a temporary local controller/peer. These do not start Mininet or alter OVS.
 
-```
-Switch connected: dpid=1 (QoS=True)
-Installed Hospital priority path rule on s1 (dpid=1)
-Installed Ambulance TCP/5001 rule on s2 (dpid=2)
-...
-```
-
-### Terminal 2 — Mininet Network
+Privileged live checks own their network and controller and refuse occupied lab
+resources:
 
 ```bash
-cd sdn-disaster-network
+sudo python3 -m tests.lab_harness --repetitions 3
+```
+
+The Phase 1 command above already passed three audited repetitions. For the new
+Phase 3 implementation, run:
+
+```bash
+python3 scripts/validate_phase3.py
+sudo python3 -m tests.phase3_harness --repetitions 3
+```
+
+Phase 3's complete live command also passed three audited repetitions; saved audit:
+`monitoring/evidence/phase3_live_audit_2026-10-16.json`.
+Use these commands for affected regressions after changes. Do not run the old root-level `test_loop.py`
+or `test_ping.py` against an active lab; their interactive/global cleanup behavior
+is preserved but excluded from the new tests.
+
+## Interactive lab
+
+Terminal 1:
+
+```bash
+../ryu/ryu-env/bin/ryu-manager --ofp-tcp-listen-port 6633 \
+  --wsapi-host 127.0.0.1 ryu.app.ofctl_rest controller/flow_manager_app.py
+```
+
+Terminal 2:
+
+```bash
 sudo python3 topology/run_network.py
 ```
 
-Expected: agency map printed, then `pingall` with **0% dropped**.
+The scenario app uses configured unicast paths, proxy ARP and static endpoint
+bindings. Registered endpoint pairs may communicate; inconsistent addresses or
+attachments are rejected. This is not cryptographic authentication or the later
+service-policy engine. The educational base learning app remains chain-only.
 
-### Terminal 3 — QoS + Monitoring + Tests
-
-```bash
-cd sdn-disaster-network
-sudo bash qos/qos_setup.sh
-bash demo_scripts/manual_flow_insertion.sh list
-```
-
----
-
-# Requirement-by-Requirement Guide
-
-## Requirement 1: Controller Setup & Topology (3 marks)
-
-### (a) Files
-
-- `topology/disaster_topo.py` — custom topology (triangle core, 3 switches, 7 hosts, TCLink)
-- `topology/run_network.py` — network launcher
-- `controller/base_switch_app.py` — learning switch base
-
-### (b) How to run
+Inspect bindings and manual rules:
 
 ```bash
-# Terminal 1
-ryu-manager controller/base_switch_app.py
-
-# Terminal 2
-sudo python3 topology/run_network.py
-```
-
-Alternative Mininet CLI launch:
-
-```bash
-sudo mn --custom topology/disaster_topo.py --topo disaster \
-  --controller=remote,ip=127.0.0.1,port=6633 --switch ovsk,protocols=OpenFlow13 \
-  --link tc
-```
-
-### (c) Evidence to capture
-
-1. **Controller logs** showing `Switch connected: dpid=1/2/3`
-2. **OVS controller connection:**
-   ```bash
-   ovs-vsctl show
-   ```
-   Look for `Controller "tcp:127.0.0.1:6633"` on each bridge (s1, s2, s3).
-
-3. **OpenFlow handshake:**
-   ```bash
-   ovs-ofctl -O OpenFlow13 show s1
-   ```
-
-4. **pingall 0% loss** output from Mininet
-
-### (d) Viva talking points
-
-- Why triangle topology? Redundant paths for later failover (s1↔s2, s2↔s3, s3↔s1).
-- TCLink bandwidth/delay model real backbone vs last-mile links.
-- SDN separates control plane (RYU) from data plane (OVS switches).
-
----
-
-## Requirement 2: Flow Rule Implementation (3 marks)
-
-### (a) Files
-
-- `controller/flow_manager_app.py` — proactive OpenFlow rules
-- `demo_scripts/manual_flow_insertion.sh` — REST API curl demo
-
-### (b) How to run
-
-```bash
-ryu-manager ryu.app.ofctl_rest controller/flow_manager_app.py
-# (Mininet running in another terminal)
-
-bash demo_scripts/manual_flow_insertion.sh demo
-# or individual commands:
+python3 config/lab.py
 bash demo_scripts/manual_flow_insertion.sh list
 bash demo_scripts/manual_flow_insertion.sh add
 bash demo_scripts/manual_flow_insertion.sh delete
 ```
 
-### (c) Evidence to capture
-
-1. **Proactive rules in controller logs** (Hospital path, Ambulance port 5001)
-2. **Flow table dump:**
-   ```bash
-   ovs-ofctl -O OpenFlow13 dump-flows s1
-   ovs-ofctl -O OpenFlow13 dump-flows s2
-   ```
-3. **REST API list output** from `manual_flow_insertion.sh list`
-4. **Before/after** adding and deleting manual Police→Hospital rule
-
-Example manual curl (Police → Hospital pinned on s1 port 2):
+Police->Hospital exits s1 port **3**. Manual rules derive bindings from inventory.
+QoS setup and teardown manage all **11** actual egress ports with owned OVSDB rows:
 
 ```bash
-curl -X POST http://127.0.0.1:8080/stats/flowentry/add \
-  -H "Content-Type: application/json" \
-  -d '{
-    "dpid": 1, "priority": 700,
-    "match": {"eth_type": 2048, "ipv4_src": "10.0.0.3", "ipv4_dst": "10.0.0.2"},
-    "actions": [{"type": "OUTPUT", "port": 2}]
-  }'
-```
-
-### (d) Viva talking points
-
-- Priority field in flow entries (higher = matched first).
-- Explicit IP/port matching vs MAC learning.
-- REST API allows runtime policy changes without restarting controller.
-
----
-
-## Requirement 3: QoS Policy Configuration (3 marks)
-
-### (a) Files
-
-- `qos/queue_config.json` — queue rate definitions (separate artifact)
-- `qos/qos_setup.sh` — ovs-vsctl HTB queue creation
-- `qos/qos_teardown.sh` — remove QoS for baseline
-- `controller/flow_manager_app.py` — `OFPActionSetQueue` mapping
-
-### (b) How to run
-
-```bash
-# With Mininet running:
 sudo bash qos/qos_setup.sh
-
-# Verify queues:
-ovs-vsctl list Queue
-ovs-ofctl -O OpenFlow13 dump-queues s1
-```
-
-Disable QoS for baseline tests:
-
-```bash
-DISASTER_QOS=0 ryu-manager controller/flow_manager_app.py
 sudo bash qos/qos_teardown.sh
 ```
 
-### (c) Evidence to capture
+OVS HTB may replace TCLink switch qdiscs. Teardown does not reconstruct TCLink
+shaping; restart the owned lab for a fresh TCLink-only configuration.
 
-1. Output of `qos_setup.sh`
-2. `ovs-vsctl list Queue` showing min-rate/max-rate for queues 0 and 1
-3. Flow entries with `set_queue:0` or `set_queue:1` in dump-flows
-4. `queue_config.json` explaining rate assumptions
+## Measurement
 
-**Queue assumptions:**
-
-| Queue | Class    | min-rate | max-rate | Purpose                    |
-|-------|----------|----------|----------|----------------------------|
-| 0     | High     | 40 Mbps  | 50 Mbps  | Hospital/Ambulance/Rescue  |
-| 1     | Low      | 1 Mbps   | 5 Mbps   | Public helpline (capped)   |
-
-### (d) Viva talking points
-
-- OVS HTB queuing vs OpenFlow `set_queue` action.
-- Why attach QoS to s1-eth1 (shared egress toward core).
-- `DISASTER_QOS=0` env var disables queue actions for fair baseline comparison.
-
----
-
-## Requirement 4: Traffic Monitoring (3 marks)
-
-### (a) Files
-
-- `monitoring/capture_traffic.sh`
-- `monitoring/stats_reader.py`
-
-### (b) How to run
+The performance CLI starts its own scoped lab; close the interactive lab first:
 
 ```bash
-sudo bash qos/qos_setup.sh   # QoS must be active
-
-# Snapshot BEFORE
-python3 monitoring/stats_reader.py --save monitoring/evidence/before.json --print
-
-# In Mininet CLI — competing traffic:
-mininet> h4 cmd iperf -s -p 5001 &
-mininet> h1 cmd iperf -s -p 8080 &
-mininet> h2 cmd iperf -c 10.0.0.4 -p 5001 -t 20 -b 30M &
-mininet> h7 cmd iperf -c 10.0.0.1 -p 8080 -t 20 -b 30M &
-
-# Snapshot AFTER
-python3 monitoring/stats_reader.py --save monitoring/evidence/after.json --print
-python3 monitoring/stats_reader.py --compare monitoring/evidence/before.json monitoring/evidence/after.json
-
-# Optional packet capture
-sudo bash monitoring/capture_traffic.sh
-```
-
-### (c) Evidence to capture
-
-1. `queue-stats` showing bytes/packets per queue (queue 0 > queue 1 for critical traffic)
-2. iperf output: high-priority flow gets more bandwidth than rate-limited helpline
-3. Saved pcap in `monitoring/evidence/`
-4. JSON stats snapshots before/after
-
-### (d) Viva talking points
-
-- Competing flows on shared bottleneck link (s1→s2).
-- Queue statistics prove policy enforcement at data plane.
-- tcpdump validates actual traffic on wire.
-
----
-
-## Requirement 5: Performance Analysis (3 marks)
-
-### (a) Files
-
-- `performance/run_tests.py` — data collection → CSV/JSON
-- `performance/generate_charts.py` — chart generation (separate script)
-
-### (b) How to run
-
-**Baseline (no QoS):**
-
-```bash
-# Terminal 1
-DISASTER_QOS=0 ryu-manager controller/flow_manager_app.py
-
-# Terminal 2: Mininet running
-sudo bash qos/qos_teardown.sh
-
-# Terminal 3
-python3 performance/run_tests.py --mode baseline
-```
-
-**With QoS:**
-
-```bash
-# Terminal 1
-DISASTER_QOS=1 ryu-manager ryu.app.ofctl_rest controller/flow_manager_app.py
-
-# Terminal 2: Mininet running
-sudo bash qos/qos_setup.sh
-
-# Terminal 3
-python3 performance/run_tests.py --mode qos
-```
-
-**Generate charts:**
-
-```bash
-python3 performance/generate_charts.py
-# Charts saved to performance/charts/
-```
-
-If host namespaces aren't available, print manual commands:
-
-```bash
+sudo python3 performance/run_tests.py --mode baseline
+sudo python3 performance/run_tests.py --mode qos
 python3 performance/run_tests.py --manual
 ```
 
-Preview charts with sample data:
+Both streams converge on **s2-eth4**, a 50 Mbps egress to h4. Each offers 35 Mbps.
+Equivalent commands in an already running Mininet CLI are:
 
-```bash
-python3 performance/generate_charts.py --sample
+```text
+mininet> h4 iperf -s -p 5001 &
+mininet> h4 iperf -s -p 8080 &
+mininet> h2 iperf -c 10.0.0.4 -p 5001 -t 12 -b 35M &
+mininet> h7 iperf -c 10.0.0.4 -p 8080 -t 12 -b 35M &
+mininet> h2 ping -c 40 -i .1 10.0.0.4
 ```
 
-### (c) Evidence to capture
+Run probes while both streams are active. The automated runner records full raw
+client/probe output, loss, mean/p95 RTT and throughput in timestamped directories.
+It verifies queue counter changes on the shared egress. Invalid/missing data fails.
+These are foundation measurements, not the final adaptive-policy comparison.
 
-1. `performance/results/perf_baseline.csv` and `perf_qos.csv`
-2. `performance/charts/throughput_comparison.png`
-3. `performance/charts/latency_comparison.png`
+Generate charts with the two actual result paths:
 
-Expected trend (with QoS under contention):
+```bash
+python3 performance/generate_charts.py --baseline <baseline-run>/perf_baseline.csv \
+  --qos <qos-run>/perf_qos.csv --output-dir /tmp/phase1-charts
+python3 performance/generate_charts.py --sample --output-dir /tmp/phase1-preview
+```
 
-- High-priority throughput **maintains or improves**
-- Low-priority throughput **drops** (rate-limited to ~5 Mbps max)
-- High-priority latency **lower** than low-priority under congestion
+Synthetic previews use separate labelled directories. They never replace measured
+CSV files; missing values do not become zeros. Initial acceptance budgets live in
+[config/acceptance.json](config/acceptance.json).
 
-### (d) Viva talking points
+## Phase 2 prototype
 
-- Same test duration/bandwidth in both conditions for fair comparison.
-- Separate collection vs chart scripts (reproducible pipeline).
-- Baseline = best-effort; QoS = policy-driven differential service.
+The separate gateway and usable-path active-backup prototype is described in
+[docs/12_phase2.md](docs/12_phase2.md). It preserves the Phase 1 lab above.
 
----
+```bash
+python3 scripts/validate_phase2.py
+sudo python3 -m tests.phase2_harness --repetitions 3
+```
 
-## Assumptions Summary (for examiner)
+The strengthened prototype has three inspected live passes, including remote-path
+monitoring and uplink/access-switch/blackhole recovery. These commands do
+not implement the later four student-led demos.
 
-1. **Flat /24 subnet** (10.0.0.0/24) — simplicity for Review 1; VLANs later.
-2. **DPIDs** s1=1, s2=2, s3=3 — Mininet default assignment order.
-3. **Bottleneck demo on s1-eth1** — both Hospital and PublicHelpline egress via s1.
-4. **iperf2** used (Mininet default); iperf3 works with minor command changes.
-5. **Port numbers** are symbolic application identifiers, not real protocol standards.
+## Phase 2 expanded topology
 
----
+The expanded inventory has **20 switches, 24 endpoints and two districts**.
+See [the expanded guide and port map](docs/13_expanded_topology.md) for addressing,
+permissions, failover dependencies, resource thresholds and evidence.
 
-## Troubleshooting
+```bash
+python3 scripts/validate_phase2.py
+python3 -m config.expanded
+sudo python3 -m tests.expanded_harness --repetitions 3
+```
 
-| Problem | Fix |
-|---------|-----|
-| Switches not connecting | Check RYU running on port 6633; `ovs-vsctl show` |
-| pingall fails | Ensure `flow_manager_app.py` or `base_switch_app.py` is running |
-| QoS has no effect | Run `qos_setup.sh` after Mininet starts; verify with `dump-queues s1` |
-| REST API connection refused | Include `ryu.app.ofctl_rest` in ryu-manager command |
-| Permission denied | Mininet and OVS commands require `sudo` |
-
----
-
-## License / Submission
-
-College networking project — Review 1 foundational SDN infrastructure.
-Extend `flow_manager_app.py` in later reviews for failover, attacks, and anomaly detection.
+The expanded live command checks all 552 directed endpoint pairs with receiver
+captures, spoof rejection, critical-site failover, aggregation/backbone faults,
+partition recovery, resource headroom and owned cleanup. Three full live passes
+were independently audited on 2026-10-16; the Phase 2 gate is satisfied. See the
+guide for results and the feasible-load scope. No unchanged rerun is needed.
