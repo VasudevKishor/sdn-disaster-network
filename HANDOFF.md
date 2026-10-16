@@ -202,8 +202,10 @@ full live repetitions, independently audited on 2026-10-16. **Phase 2's implemen
 gate is satisfied.** No unchanged rerun is needed. Phase 3's incident-policy and
 operator capabilities now also passed three complete live repetitions and an
 independent evidence audit on 2026-10-16. **Phase 3's implemented gate is satisfied.**
-Phase 4's simplified four student demo helpers are now implemented; their
-focused congestion check passed; the full three-repetition rehearsal is next.
+Phase 4's simplified four student demo helpers are now implemented. Focused
+congestion and onboarding checks have passed. The first full rehearsal exposed
+a prepared-endpoint route restoration failure during onboarding; the fix passed
+its focused live check. The full three-repetition rehearsal remains pending.
 See [the Phase 3 guide](docs/14_phase3.md) and newest progress entry. Dated progress entries
 below are historical; the newest entry supersedes their pending status.
 
@@ -292,8 +294,13 @@ three-repetition gate. Phase 2's prototype and full 20-switch expansion also pas
 their inspected three-repetition gates. Preserve this baseline. Phase 3 profiles,
 capacity checks, service access, queues, deployment/recovery and operator commands
 passed their three-repetition live gate and evidence audit. Phase 4's simplified
-helpers use these controls; the focused congestion live check passed. Next are
-three complete demo/reset repetitions and evidence audit. Do not reopen planning or expand scope.
+helpers use these controls; the focused congestion live check passed. A full run
+then showed that bringing `af3` back up after onboarding's deliberate link-down
+left its IP route unavailable (`ENETUNREACH`), so denied probes were local errors
+instead of tested network denials. The activation and reset paths now restore
+the endpoint address, default route and gateway neighbor explicitly. The 14
+offline demo tests pass, and the focused onboarding live check now passes. Next
+run the full three repetitions. Do not reopen planning or expand scope.
 
 Exact deadline and the team's prior gateway/bonding experience are unknown. Ask
 briefly if needed while continuing the agreed implementation. Do not restart
@@ -308,7 +315,7 @@ the project-planning discussion just to obtain those answers.
 | Phase 2 gateway/bond prototype | Validated: three inspected live repetitions including usable-path faults, restoration and stronger spoof rejection |
 | Expanded two-district topology | Implemented: 20 switches/24 endpoints; 143 offline tests and three audited full live repetitions; Phase 2 gate passed |
 | Phase 3 incident-policy engine/operator controls | Gate passed: 179-test full offline baseline, latest 27 affected regressions including real OVS/Ryu, and three audited complete live repetitions |
-| Phase 4 integrated student demonstrations | Implemented; 198 offline regressions and audited focused congestion/reset passed; full three-repetition rehearsal pending |
+| Phase 4 integrated student demonstrations | Implemented; 198 offline regressions; focused congestion/reset and focused onboarding audited passed; route restoration fix covered by 14 demo tests; full three-repetition rehearsal pending |
 | Comparative network measurements | Not started |
 | Final presentation and rehearsal | Not started |
 
@@ -1306,6 +1313,33 @@ specification as the target and this file as the current handoff state.
   demonstrations/resets, followed by saved-evidence audit. Do not rerun the
   unchanged congestion diagnostic or Phase 1–3 live gates. Phase 4 remains open
   until three complete repetitions pass and are inspected.
+
+### Phase 4 onboarding route restoration fix (2026-10-16)
+
+- Full run `phase4-live/20261016T071429243126Z` completed the congestion and
+  routing demos. Onboarding's first denied reporting probe and its reset probe
+  each recorded 100 local `ENETUNREACH` errors, zero sent packets and zero
+  receiver requests. The runner correctly rejected these as unproven denials.
+- The onboarding demo deliberately takes `af3`'s interface down. Raising the
+  link did not reliably restore the endpoint's host route. Added an explicit
+  address/default-route/gateway-neighbor restoration during activation and
+  reset in `demo_scripts/engine.py`, with offline command assertions in
+  `tests/test_demos.py`.
+- `python3 -m unittest tests.test_demos`: 14 passed. This verifies the host
+  restoration commands and demo state transitions; it does not replace the
+  privileged live probe.
+- Focused live run `phase4-live/20261016T072337391178Z` passed all onboarding
+  actions and reset. Both unregistered and registered-without-permission stages
+  recorded 100 attempts, zero local errors and zero receiver requests. The exact
+  granted report recorded 100/100 replies, p95 3.118 ms and 100 receiver
+  requests without duplicates. Unrelated medical and spoofed reporting attempts
+  produced no receiver requests. Reset delivered 100 dispatch probes and denied
+  reporting again with no pending update. All capture-loss counters were zero;
+  demo, policy, service and health cleanup records contain no errors and owned
+  processes exited cleanly. Audit: `monitoring/evidence/phase4_onboarding_live_audit_2026-10-16.json`.
+- The marker is `FOCUSED_PASS`, not full `PASS`. Next run
+  `sudo python3 -m tests.phase4_harness --repetitions 3`, then inspect every
+  saved repetition before marking Phase 4 complete.
 
 ## Prompt to paste into the new chat
 

@@ -161,9 +161,10 @@ class DemoStateTests(unittest.TestCase):
         self.driver.probe=probe
         for target,kwargs in (
                 ('demo_scripts.engine.topology',{'return_value':self.graph}),
-                ('demo_scripts.engine.host_command',{'return_value':''}),
                 ('demo_scripts.engine.execute',{'return_value':''})):
             mocked=patch(target,**kwargs); mocked.start(); self.addCleanup(mocked.stop)
+        self.host_command_mock=patch('demo_scripts.engine.host_command',return_value='')
+        self.host_commands=self.host_command_mock.start(); self.addCleanup(self.host_command_mock.stop)
         self.driver.apply(initial_config(self.inv))
 
     def call(self,demo,action): return self.driver.execute({'demo':demo,'action':action})
@@ -172,6 +173,12 @@ class DemoStateTests(unittest.TestCase):
         # Packet delivery is stubbed here; policy snapshots and flow compilation
         # are real. Actual packets are checked separately in the privileged gate.
         self.call('onboarding','setup'); self.call('onboarding','inject')
+        site=self.inv.SITES[self.inv.ENDPOINTS['af3'].site]
+        self.host_commands.assert_any_call(self.net['af3'],[
+            'ip','route','replace','default','via',site.gateway,'dev',self.net['af3'].application_interface])
+        self.host_commands.assert_any_call(self.net['af3'],[
+            'ip','neigh','replace',site.gateway,'lladdr',site.gateway_mac,'nud','permanent',
+            'dev',self.net['af3'].application_interface])
         self.call('onboarding','measure'); self.call('onboarding','register'); self.call('onboarding','measure')
         self.call('onboarding','grant')
         with patch.object(self.driver,'spoof_check',return_value={'denied':True}): self.call('onboarding','verify')

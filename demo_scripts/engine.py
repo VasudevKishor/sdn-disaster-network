@@ -109,6 +109,19 @@ class DemoLab:
         self.responders[name]=process
         wait(lambda:ready.exists() and process.poll() is None,label='Reset service listener: '+name)
 
+    def restore_endpoint_network(self, name):
+        """Restore host IP routing after a demo deliberately drops its link."""
+        endpoint=self.inv.ENDPOINTS[name]; site=self.inv.SITES[endpoint.site]
+        interface=self.net[name].application_interface
+        prefix=site.subnet.split('/')[1]
+        host_command(self.net[name],['ip','link','set','dev',interface,'up'])
+        host_command(self.net[name],['ip','addr','replace',endpoint.ip+'/'+prefix,'dev',interface])
+        host_command(self.net[name],['ip','route','replace','default','via',site.gateway,'dev',interface])
+        # Denied-service probes must reach the access switch so their lack of
+        # delivery proves policy enforcement instead of a failed ARP lookup.
+        host_command(self.net[name],['ip','neigh','replace',site.gateway,'lladdr',site.gateway_mac,
+                                     'nud','permanent','dev',interface])
+
     def setup(self, demo):
         require(self.active is None,'Reset the current demonstration before starting another')
         self.active=demo; self.serial=0; self.state={}; self.saved=None
@@ -227,7 +240,7 @@ class DemoLab:
                     'failed_link_stays_down':self.failed_link}
         if self.active=='onboarding':
             require(not self.state['activated'],'Endpoint already activated')
-            host_command(self.net['af3'],['ip','link','set','dev',self.net['af3'].application_interface,'up'])
+            self.restore_endpoint_network('af3')
             attachment=self.inv.ENDPOINTS['af3'].attachments[0]
             wait(lambda:(attachment.switch,attachment.port) in topology(self.session,self.inv).up,label='Prepared endpoint attachment')
             self.state['activated']=True
@@ -384,7 +397,7 @@ class DemoLab:
             for name in sorted(self.replaced_echo): self.restart_echo(name)
             self.replaced_echo.clear()
         if demo=='onboarding':
-            host_command(self.net['af3'],['ip','link','set','dev',self.net['af3'].application_interface,'up'])
+            self.restore_endpoint_network('af3')
             attachment=self.inv.ENDPOINTS['af3'].attachments[0]
             wait(lambda:(attachment.switch,attachment.port) in topology(self.session,self.inv).up,label='Endpoint reset')
         with locked(self.session):
